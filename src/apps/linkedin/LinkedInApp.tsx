@@ -327,7 +327,7 @@ const LeadDetail: React.FC<{
   // Deliberately NOT state.
   //
   // Latched at generation time, the check fired once against text the user could
-  // not edit, and vanished the moment they clicked another lead — so the copy
+  // not edit, and vanished the moment they clicked another lead - so the copy
   // they actually send tomorrow carries no warning at all. validateOutput is
   // pure, so recomputing from whatever is on screen costs nothing and means
   // fixing a violation visibly clears it.
@@ -337,7 +337,7 @@ const LeadDetail: React.FC<{
    * This is a failed generation that was saved before the functions learned to
    * refuse one. Grading it produces twelve identical "came back empty,
    * regenerate" violations, which reads as twelve problems with the copy when
-   * it is one problem with the generation — and none of them can ever be
+   * it is one problem with the generation - and none of them can ever be
    * cleared by editing. It gets its own state.
    */
   const flowIsEmpty = useMemo(
