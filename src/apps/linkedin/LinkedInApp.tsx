@@ -959,6 +959,10 @@ const LeadDetail: React.FC<{
                       const d = dueByKey[s.key];
                       if (!d) return undefined;
                       if (d.sent) return d.sentAt ? `sent ${new Date(d.sentAt).toLocaleDateString()}` : 'sent';
+                      // A day count on an unreachable step (openerDm etc. before
+                      // acceptance) would read as "3 days overdue" for something
+                      // that can't be sent yet — waiting on the accept, not late.
+                      if (!d.reachable) return 'waiting on accept';
                       if (d.daysUntilDue == null) return typeof s.day === 'number' ? `day ${s.day}` : undefined;
                       if (d.daysUntilDue < 0) return `${-d.daysUntilDue} day${d.daysUntilDue === -1 ? '' : 's'} overdue`;
                       if (d.daysUntilDue === 0) return 'due today';
