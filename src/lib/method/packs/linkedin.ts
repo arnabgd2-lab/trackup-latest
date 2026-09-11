@@ -306,6 +306,7 @@ export const linkedinPack: MethodPack = {
     purpose: "Earn a reply and nothing else.",
     day: 1,
     maxChars: 600,
+    requiresConnection: true,
     constraints: [
       "Open on the verified observation, in the first line, before anything about you.",
       "Name one problem in language the reader would use about their own business.",
@@ -321,6 +322,7 @@ export const linkedinPack: MethodPack = {
     purpose: "Give the reader one reason to believe you specifically, matched to their situation.",
     day: 4,
     maxChars: 700,
+    requiresConnection: true,
     constraints: [
       "Reference the first message in one clause; do not restate it.",
       "Exactly one proof point, from a business the reader would recognise as like theirs. The one-proof limit is an editorial constraint of this pack, not a sourced law, the citation supports only the matching requirement.",
@@ -338,6 +340,7 @@ export const linkedinPack: MethodPack = {
     purpose: "Convert silence into a dated answer or a redirect.",
     day: 9,
     maxChars: 500,
+    requiresConnection: true,
     constraints: [
       "Ask who the right person is if it is not them. This redirect is the sourced element of the message.",
       "Frame it as closing the file and say plainly that this is the last message. Pack doctrine, not sourced, the cited material prescribes only a short pattern interrupt.",
@@ -544,5 +547,5 @@ export const linkedinPack: MethodPack = {
       "tension": "Reply within the hour versus reply well. One source sets the standard at within the hour and another at five minutes, both on the argument that speed to lead dominates. Neither is achievable for an operator in a different time zone from their market, and a missed promise is worse than a slower one.",
       "resolution": "State a window you will actually hold and hold it. A kept two-hour commitment beats a broken one-hour commitment. What is not negotiable: the first reply is written by a human, and no reply goes unanswered past one business day in the reader's calendar."
     }
-  ],
+  ]
 };
