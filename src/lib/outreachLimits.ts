@@ -4,7 +4,7 @@
 // requests (leadImport.ts carries the same number in its header comment), and
 // outside guidance for an aged account converges on 15-25/day, with LinkedIn's
 // actual weekly invitation cap widely reported around 100/week. None of that
-// was ever enforced anywhere in the UI - the queue could tell you who was due,
+// was ever enforced anywhere in the UI — the queue could tell you who was due,
 // but nothing told you when to stop for the day.
 //
 // This is a guardrail, not a lock. The app cannot see LinkedIn itself and

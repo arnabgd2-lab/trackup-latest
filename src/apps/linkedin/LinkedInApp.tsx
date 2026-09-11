@@ -407,7 +407,7 @@ const LeadDetail: React.FC<{
   };
 
   // A step already at/over today's connection-request cap gets one extra click
-  // before it can be marked sent, rather than being silently blocked - the
+  // before it can be marked sent, rather than being silently blocked — the
   // human stays the one who decides whether this particular request is worth
   // going over for, the app's job is only to make sure they saw the number.
   const [confirmOverCap, setConfirmOverCap] = useState<string | null>(null);
