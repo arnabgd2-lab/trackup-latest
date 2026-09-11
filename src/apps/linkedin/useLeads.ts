@@ -7,6 +7,18 @@ export interface MutationResult {
   error?: string;
 }
 
+/**
+ * Supabase's REST API caps an unbounded `select` at 1000 rows by default.
+ * Past that, `.select('*').order('created_at', { ascending: false })` still
+ * returns 200 OK with a row array — it just silently drops everything past
+ * the newest 1000, oldest first. That surfaced as the funnel tiles and the
+ * leads list quietly losing an operator's earliest leads (their first
+ * connected ones, in one case) the moment a later import pushed the account
+ * past 1000 total. An explicit limit well above any real account size turns
+ * that into "load everything" instead of "load whatever fits by accident."
+ */
+const FETCH_LIMIT = 20000;
+
 export const useLeads = () => {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -20,7 +32,8 @@ export const useLeads = () => {
       .from('leads')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(FETCH_LIMIT);
 
     if (error) {
       // A failed read must never look like an empty account. Keep whatever is
