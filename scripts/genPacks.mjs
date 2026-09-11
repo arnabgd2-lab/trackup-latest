@@ -47,7 +47,7 @@ const renderStep = (s) => `  {
     label: ${q(s.label)},${s.group === undefined ? '' : `\n    group: ${q(s.group)},`}
     purpose: ${q(s.purpose)},${s.day === undefined ? '' : `\n    day: ${s.day},`}${
   s.maxChars === undefined ? '' : `\n    maxChars: ${s.maxChars},`
-}
+}${s.requiresConnection === undefined ? '' : `\n    requiresConnection: ${s.requiresConnection},`}
     constraints: ${src(s.constraints, 4)},
   },`;
 
