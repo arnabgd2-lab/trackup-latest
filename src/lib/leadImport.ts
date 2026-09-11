@@ -160,7 +160,16 @@ export const guessMapping = (sheet: ParsedSheet): Partial<Record<ImportField, nu
  * Trailing slashes, query strings, http against https, www, and a locale prefix
  * are all the same person. Without collapsing them the uniqueness constraint
  * would cheerfully store five copies.
+ *
+ * The path is lowercased for dedup EXCEPT under /sales/, where Sales Navigator
+ * encodes the lead as an opaque, case-sensitive id (e.g.
+ * /sales/lead/ACwAAADr7a...). Lowercasing that id doesn't collapse duplicates,
+ * it silently rewrites the link to a different (usually nonexistent) profile —
+ * every "LinkedIn profile" link built from a Sales Navigator export was
+ * pointing at a dead lookup because of this.
  */
+const SALES_NAV_PATH = /^\/sales\//i;
+
 export const normalizeLinkedInUrl = (raw: string): string => {
   const v = (raw ?? '').trim();
   if (!v) return '';
@@ -168,7 +177,8 @@ export const normalizeLinkedInUrl = (raw: string): string => {
   try {
     const u = new URL(withScheme);
     const host = u.hostname.replace(/^([a-z]{2,3}\.)?(www\.)?/i, '');
-    const path = u.pathname.replace(/\/+$/, '').toLowerCase();
+    const trimmedPath = u.pathname.replace(/\/+$/, '');
+    const path = SALES_NAV_PATH.test(trimmedPath) ? trimmedPath : trimmedPath.toLowerCase();
     return `https://${host.toLowerCase()}${path}`;
   } catch {
     return v.replace(/\/+$/, '').toLowerCase();
