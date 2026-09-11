@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Linkedin, Plus, Sparkles, Copy, Check, Trash2, Loader2, ExternalLink, X,
-  ThumbsUp, ThumbsDown, Lightbulb, Upload,
+  ThumbsUp, ThumbsDown, Lightbulb, Upload, ShieldAlert,
 } from 'lucide-react';
 import { useLeads, type MutationResult } from './useLeads';
 import { Lead, LeadStatus, OutreachFlow, GenerationMeta, migrateFlow, readSentSteps, isTerminal } from './types';
 import { getPack } from '../../lib/method/packs';
 import { cadenceFor, dueQueue, pendingInvitationDays, STALE_INVITATION_DAYS } from '../../lib/cadence';
 import { funnelFor, closedCount, revenueFrom, MIN_SAMPLE } from '../../lib/funnel';
+import {
+  connectionCapStatus, loadDailyCap, saveDailyCap, CONNECTION_STEP_KEY, type ConnectionCapStatus,
+} from '../../lib/outreachLimits';
 import { supabase } from '../../lib/supabase';
 import { loadAIConfig } from '../../lib/aiConfig';
 import { loadUserContext, senderAbout } from '../../lib/userContext';
@@ -75,6 +78,19 @@ export const LinkedInApp: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     );
   }, [leads]);
 
+  // The daily send-cap guardrail. `capTick` forces a recompute after the limit
+  // itself is edited, since that write goes straight to localStorage rather
+  // than through `leads` and would otherwise leave the banner stale until the
+  // next unrelated render.
+  const [capTick, setCapTick] = useState(0);
+  // capTick isn't read inside the callback; it exists purely to force a
+  // recompute after the cap itself changes in localStorage, which `leads`
+  // cannot see.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const capStatus = useMemo(() => connectionCapStatus(leads), [leads, capTick]);
+  const [editingCap, setEditingCap] = useState(false);
+  const [capDraft, setCapDraft] = useState(() => String(loadDailyCap()));
+
   return (
     <div className="min-h-screen flex flex-col app-canvas accent-linkedin">
       <AppBar title="LinkedIn DM Generator" icon={Linkedin} gradient="from-linkedin-400 to-linkedin-600" onExit={onExit}>
@@ -85,6 +101,76 @@ export const LinkedInApp: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           <Plus className="w-4 h-4 mr-1.5" /> Add lead
         </button>
       </AppBar>
+
+      <div className="max-w-6xl w-full mx-auto px-6 pt-5">
+        <div
+          className={`rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap ${
+            capStatus.level === 'over'
+              ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+              : capStatus.level === 'caution'
+                ? 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldAlert
+              className={`w-4 h-4 flex-shrink-0 ${
+                capStatus.level === 'over'
+                  ? 'text-red-600 dark:text-red-400'
+                  : capStatus.level === 'caution'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-gray-400'
+              }`}
+            />
+            <p className="text-xs text-gray-700 dark:text-gray-300">
+              <span className="font-bold">{capStatus.sentToday}/{capStatus.cap}</span> connection requests sent today
+              {capStatus.level === 'over' && (
+                <span className="font-semibold text-red-700 dark:text-red-400">
+                  {' '}— today's limit is reached. Sending more risks LinkedIn flagging the account.
+                </span>
+              )}
+              {capStatus.level === 'caution' && (
+                <span className="text-amber-700 dark:text-amber-400"> — approaching today's limit.</span>
+              )}
+              <span className="text-gray-400">
+                {' '}· {capStatus.sentThisWeek} this week (LinkedIn's own reported weekly cap is ~{capStatus.weeklyReportedCap})
+              </span>
+            </p>
+          </div>
+          {editingCap ? (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <input
+                type="number"
+                min={1}
+                value={capDraft}
+                onChange={(e) => setCapDraft(e.target.value)}
+                className="w-16 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+              />
+              <button
+                onClick={() => {
+                  const n = Number(capDraft);
+                  if (Number.isFinite(n) && n > 0) saveDailyCap(n);
+                  setEditingCap(false);
+                  setCapTick((t) => t + 1);
+                }}
+                className="text-xs font-medium text-linkedin-600 hover:text-linkedin-700"
+              >
+                Save
+              </button>
+              <button onClick={() => setEditingCap(false)} className="text-xs text-gray-500">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setCapDraft(String(capStatus.cap)); setEditingCap(true); }}
+              className="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0"
+            >
+              Change limit
+            </button>
+          )}
+        </div>
+      </div>
 
       {leads.length > 0 && (
         <div className="max-w-6xl w-full mx-auto px-6 pt-5">
@@ -193,6 +279,7 @@ export const LinkedInApp: React.FC<{ onExit: () => void }> = ({ onExit }) => {
               lead={selected}
               onUpdate={updateLead}
               onDelete={async (id) => { await deleteLead(id); setSelectedId(null); }}
+              capStatus={capStatus}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-center text-gray-400 card-modern p-10">
@@ -225,7 +312,8 @@ const LeadDetail: React.FC<{
   // what let a failed save silently eat a freshly generated flow.
   onUpdate: (id: string, updates: Partial<Lead>) => Promise<MutationResult>;
   onDelete: (id: string) => void;
-}> = ({ lead, onUpdate, onDelete }) => {
+  capStatus: ConnectionCapStatus;
+}> = ({ lead, onUpdate, onDelete, capStatus }) => {
   const { cases, loadError: vaultError } = useCaseStudies();
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
@@ -239,7 +327,7 @@ const LeadDetail: React.FC<{
   // Deliberately NOT state.
   //
   // Latched at generation time, the check fired once against text the user could
-  // not edit, and vanished the moment they clicked another lead — so the copy
+  // not edit, and vanished the moment they clicked another lead - so the copy
   // they actually send tomorrow carries no warning at all. validateOutput is
   // pure, so recomputing from whatever is on screen costs nothing and means
   // fixing a violation visibly clears it.
@@ -249,7 +337,7 @@ const LeadDetail: React.FC<{
    * This is a failed generation that was saved before the functions learned to
    * refuse one. Grading it produces twelve identical "came back empty,
    * regenerate" violations, which reads as twelve problems with the copy when
-   * it is one problem with the generation — and none of them can ever be
+   * it is one problem with the generation - and none of them can ever be
    * cleared by editing. It gets its own state.
    */
   const flowIsEmpty = useMemo(
@@ -318,7 +406,19 @@ const LeadDetail: React.FC<{
     try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1500); } catch { /* */ }
   };
 
-  const toggleSent = async (key: string) => {
+  // A step already at/over today's connection-request cap gets one extra click
+  // before it can be marked sent, rather than being silently blocked - the
+  // human stays the one who decides whether this particular request is worth
+  // going over for, the app's job is only to make sure they saw the number.
+  const [confirmOverCap, setConfirmOverCap] = useState<string | null>(null);
+
+  const toggleSent = async (key: string, opts?: { skipCapCheck?: boolean }) => {
+    const alreadySent = key in sentSteps;
+    if (!alreadySent && key === CONNECTION_STEP_KEY && capStatus.level === 'over' && !opts?.skipCapCheck) {
+      setConfirmOverCap(key);
+      return;
+    }
+    setConfirmOverCap(null);
     const next = { ...sentSteps };
     // Stamped at the moment the user ticks it. This is the only record of WHEN
     // anything went out, and the whole cadence is derived from it.
@@ -474,10 +574,27 @@ const LeadDetail: React.FC<{
         </h4>
         <div className="flex items-center gap-3">
           {track && (
-            <label className="flex items-center text-xs text-gray-500 cursor-pointer select-none">
-              <input type="checkbox" className="mr-1.5 accent-linkedin-600" checked={id in sentSteps} onChange={() => toggleSent(id)} />
-              Sent
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center text-xs text-gray-500 cursor-pointer select-none">
+                <input type="checkbox" className="mr-1.5 accent-linkedin-600" checked={id in sentSteps} onChange={() => toggleSent(id)} />
+                Sent
+              </label>
+              {confirmOverCap === id && (
+                <span className="text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                  Over today's cap —
+                  <button
+                    type="button"
+                    onClick={() => toggleSent(id, { skipCapCheck: true })}
+                    className="underline font-semibold"
+                  >
+                    send anyway
+                  </button>
+                  <button type="button" onClick={() => setConfirmOverCap(null)} className="underline">
+                    cancel
+                  </button>
+                </span>
+              )}
+            </div>
           )}
           {text && (
             <button onClick={() => copy(text, id)} className="text-xs font-medium text-linkedin-600 hover:text-linkedin-700 inline-flex items-center">
