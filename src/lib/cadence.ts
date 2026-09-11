@@ -13,7 +13,7 @@
 
 import type { MethodPack, StructureStep } from './method/types';
 import { firstSentAt, isTerminal, type SentSteps } from '../apps/linkedin/types';
-import type { Lead } from '../apps/linkedin/types';
+import type { Lead, LeadStatus } from '../apps/linkedin/types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,6 +25,16 @@ export interface DueStep {
   daysUntilDue: number | null;
   sent: boolean;
   sentAt: string | null;
+  /**
+   * False when `step.requiresConnection` is set and the lead hasn't reached
+   * `connected` yet. A day-based due date is still computed and shown above
+   * (it's anchored to when the connection note went out, which is the only
+   * anchor there is), but a step nobody can actually send yet must not be
+   * offered as `next` or counted into `dueQueue` — that was the "Due now"
+   * queue silently including hundreds of leads still waiting on an accept,
+   * flagged as overdue for a DM that can't go out until they say yes.
+   */
+  reachable: boolean;
 }
 
 export interface LeadCadence {
@@ -73,6 +83,13 @@ export const cadenceFor = (
   const anchor = anchorIso ? new Date(anchorIso) : null;
   const baseDay = steps.length ? (steps[0].day ?? 0) : 0;
 
+  // `connected` is the only non-halted status that means the invitation was
+  // actually accepted. `new` and `requested` are the two stages that precede
+  // acceptance; every other status either halts the cadence above (replied,
+  // meeting, the terminal ones) or, for this pack, cannot occur before it.
+  const notYetConnected: LeadStatus[] = ['new', 'requested'];
+  const isConnected = !notYetConnected.includes(lead.status);
+
   const due: DueStep[] = steps.map((step) => {
     const sentAt = sent[step.key] ?? null;
     const isSent = step.key in sent;
@@ -88,6 +105,7 @@ export const cadenceFor = (
       daysUntilDue: dueAt ? daysFromToday(dueAt, now) : null,
       sent: isSent,
       sentAt: sentAt || null,
+      reachable: !step.requiresConnection || isConnected,
     };
   });
 
@@ -101,8 +119,12 @@ export const cadenceFor = (
     haltedBecause = 'They replied. The sequence stops here and you take it from the reply branches.';
   }
 
-  const firstUnsent = due.find((d) => !d.sent) ?? null;
-  const next = haltedBecause ? null : firstUnsent;
+  // Skips unreachable steps entirely rather than parking on them: a
+  // `requested` lead with connectionNote sent has nothing reachable yet, so
+  // `next` comes back null and the lead simply isn't due — not "due for a
+  // message it can't receive."
+  const firstActionable = due.find((d) => !d.sent && d.reachable) ?? null;
+  const next = haltedBecause ? null : firstActionable;
 
   return {
     lead,

@@ -66,6 +66,16 @@ export interface StructureStep {
   day?: number;
   /** Soft ceiling in characters; the validator warns past it. */
   maxChars?: number;
+  /**
+   * True when this step's own doctrine requires an already-accepted
+   * connection — a DM step that literally cannot go out to someone who
+   * hasn't accepted yet (openerDm's label says it outright: "sent after the
+   * request is accepted"). `cadenceFor` uses this to withhold the step from
+   * `next`/`dueQueue` until the lead's status shows the connection actually
+   * exists, instead of letting a day-based clock started by the connection
+   * note declare it due regardless of whether anyone accepted it.
+   */
+  requiresConnection?: boolean;
   /** Rules that apply to this step only. */
   constraints: string[];
 }
