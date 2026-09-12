@@ -547,5 +547,5 @@ export const linkedinPack: MethodPack = {
       "tension": "Reply within the hour versus reply well. One source sets the standard at within the hour and another at five minutes, both on the argument that speed to lead dominates. Neither is achievable for an operator in a different time zone from their market, and a missed promise is worse than a slower one.",
       "resolution": "State a window you will actually hold and hold it. A kept two-hour commitment beats a broken one-hour commitment. What is not negotiable: the first reply is written by a human, and no reply goes unanswered past one business day in the reader's calendar."
     }
-  ]
+  ],
 };
