@@ -893,7 +893,8 @@
           "Close on one intent-sorting question answerable in a word or a sentence.",
           "Under 100 words."
         ],
-        "group": "The sequence"
+        "group": "The sequence",
+        "requiresConnection": true
       },
       {
         "key": "proofDm",
@@ -910,7 +911,8 @@
           "Different ask from the first message, so it reads as new information rather than a repeat.",
           "No link. No call ask."
         ],
-        "group": "The sequence"
+        "group": "The sequence",
+        "requiresConnection": true
       },
       {
         "key": "closeFileDm",
@@ -925,7 +927,8 @@
           "Promise one return at a named time, and keep it to once.",
           "No new pitch, no link, no guilt."
         ],
-        "group": "The sequence"
+        "group": "The sequence",
+        "requiresConnection": true
       },
       {
         "key": "answerTheQuestion",
